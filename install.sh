@@ -16,6 +16,32 @@ set -euo pipefail
 log() { echo ""; echo "==> $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# ─── Prompt for cluster configuration ───────────────────────────────────────
+
+prompt_config() {
+  local default_region="us-west-2"
+  local default_name="my-eks-cluster"
+
+  echo ""
+  echo "EKS Cluster Configuration"
+  echo "─────────────────────────"
+
+  read -rp "AWS region [${default_region}]: " input_region
+  TF_VAR_region="${input_region:-$default_region}"
+
+  read -rp "Cluster name [${default_name}]: ": input_name
+  TF_VAR_cluster_name="${input_name:-$default_name}"
+
+  export TF_VAR_region TF_VAR_cluster_name
+
+  echo ""
+  echo "  Region:       $TF_VAR_region"
+  echo "  Cluster name: $TF_VAR_cluster_name"
+  echo ""
+  read -rp "Proceed? [Y/n]: " confirm
+  [[ "${confirm:-Y}" =~ ^[Yy]$ ]] || die "Aborted."
+}
+
 check_prereqs() {
   local missing=()
   for cmd in terraform aws kubectl helm; do
@@ -196,6 +222,7 @@ print_summary() {
 
 main() {
   check_prereqs
+  prompt_config
 
   log "Initializing Terraform..."
   terraform init
