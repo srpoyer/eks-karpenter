@@ -1,0 +1,15 @@
+# Terraform state
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfstate.*.backup
+
+# Terraform working directory
+.terraform/
+.terraform.lock.hcl
+
+# Terraform variable files (may contain secrets)
+*.tfvars
+*.tfvars.json
+
+# Claude Code
+.claude/
