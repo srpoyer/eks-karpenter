@@ -1,3 +1,67 @@
+# ── Inflate Deployment ────────────────────────────────────────────────────────
+# Holds spare capacity by running low-priority pause containers sized to consume
+# ~1 vCPU / 1.5Gi per replica. Karpenter provisions real nodes for them, but:
+#   - Real workloads can preempt them (low PriorityClass)
+#   - Karpenter consolidation can still bin-pack and scale down when possible
+# Adjust replicas to control how many extra nodes stay warm.
+
+resource "kubernetes_priority_class_v1" "inflate" {
+  metadata {
+    name = "inflate-low"
+  }
+  value          = -10
+  global_default = false
+  description    = "Low priority class for inflate/placeholder pods"
+}
+
+resource "kubernetes_deployment_v1" "inflate" {
+  metadata {
+    name      = "inflate"
+    namespace = "default"
+    labels = {
+      app = "inflate"
+    }
+  }
+
+  spec {
+    replicas = 3
+
+    selector {
+      match_labels = {
+        app = "inflate"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "inflate"
+        }
+      }
+
+      spec {
+        priority_class_name = kubernetes_priority_class_v1.inflate.metadata[0].name
+
+        container {
+          name  = "inflate"
+          image = "public.ecr.aws/eks-distro/kubernetes/pause:3.7"
+
+          resources {
+            requests = {
+              cpu    = "1"
+              memory = "1.5Gi"
+            }
+          }
+        }
+
+      }
+    }
+  }
+
+  depends_on = [helm_release.karpenter]
+}
+
+# ── Load Generators ───────────────────────────────────────────────────────────
 # Dedicated load generator that sends sustained HTTP traffic to the Online
 # Boutique frontend service. Combined with the app's built-in Locust-based
 # loadgenerator (scaled to 3 replicas), this creates enough pressure to

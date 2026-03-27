@@ -466,8 +466,15 @@ resource "null_resource" "karpenter_node_class" {
 
 # ── NodePool ──────────────────────────────────────────────────────────────────
 # Defines the constraints for nodes Karpenter can provision.
-# Allows on-demand and spot across c/m/r instance families (gen 3+).
+# Allows on-demand and spot across c/m/r instance families (gen 3+, using karpenter-native label).
 # Consolidates underutilized or empty nodes after 1 minute.
+#
+# NOTE: instance-generation uses karpenter.k8s.aws/instance-generation (not
+# node.kubernetes.io/instance-generation). Cast AI's kent service cannot resolve
+# Gt/Lt operators on the generic node.kubernetes.io label — it has no lookup table
+# to enumerate valid instance types, causing node template ingestion to fail and
+# downstream 500s on workload/evictor endpoints. The karpenter.k8s.aws label is
+# resolved internally via EC2 instance type metadata and is safe for Cast AI.
 
 resource "null_resource" "karpenter_node_pool" {
   triggers = {
@@ -502,7 +509,7 @@ resource "null_resource" "karpenter_node_pool" {
               - key: node.kubernetes.io/instance-category
                 operator: In
                 values: ["c", "m", "r"]
-              - key: node.kubernetes.io/instance-generation
+              - key: karpenter.k8s.aws/instance-generation
                 operator: Gt
                 values: ["2"]
         limits:
